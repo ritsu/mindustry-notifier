@@ -217,9 +217,7 @@ class WindowsNotifier:
         win32api.PostQuitMessage(0)
     
     def on_taskbar_notify(self, hwnd, msg, wparam, lparam):
-        if lparam == win32con.WM_LBUTTONUP:
-            WindowsNotifier.show_game_window()
-        elif lparam == win32con.WM_RBUTTONUP:
+        if lparam == win32con.WM_RBUTTONUP:
             menu = win32gui.CreatePopupMenu()
             # win32gui.AppendMenu(menu, win32con.MF_STRING, 1023, "Show Status")
             win32gui.AppendMenu(menu, win32con.MF_STRING, 1024, "Show Mindustry Game")
