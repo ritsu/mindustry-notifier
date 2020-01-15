@@ -1,14 +1,17 @@
 Mindustry Notifier
 =======================================
 Creates Windows notifications to alert the player when boss waves occur 
-in [Mindustry](https://github.com/Anuken/Mindustry).
+in [Mindustry](https://github.com/Anuken/Mindustry). 
 
-Boss waves are detected by checking for the red health bar that appears 
-in the top left corner of the game window.
+The motivation for creating this was so I could leave the game running in 
+the background while doing other things and be alerted when boss waves 
+appeared.
 
-Mindustry needs to be running in window or borderless 
-window mode for this to work. The game window needs to be open (not 
-mimimized), although it can be behind other windows.
+The notifier detects boss waves by checking for the red health bar in the 
+top left corner of the game window. Because of this, Mindustry needs to be 
+running in window or borderless window mode. The game window can be in the 
+background behind other windows or off the side of the screen, but it cannot 
+be minimized.
 
 
 ## Requirements
@@ -20,17 +23,18 @@ mimimized), although it can be behind other windows.
 
 ## Usage
 Run **notifier.py**, either by associating .py files with Python in 
-Windows and double-clicking the file, or opening a command line window 
+Windows and double clicking the file, or opening a command line window 
 and running:
 ```
 python notifier.py
 ```
-Quit by right-clicking the system tray icon or closing the command line 
-window.
+Close the notifier through the system tray icon menu or by simply closing 
+the command line window.
 
 
 ## Options
-Command line options are available via the command line:
+Command line options are available when running the notifier via the command 
+line. To see the list of options, type:
 ```
 python notifier.py -h
 ```
@@ -51,7 +55,7 @@ This will bring up the following:
 
 If Windows notifications aren't being triggered, Focus Assist is 
 probably turned on, which silences all Windows notifications. Windows 
-tends to automatically enable this feature when it detects that you're 
+automatically enables this feature when it detects that you're 
 gaming. To enable the notifications, you'll have to 
 [turn off Focus Assist](https://support.microsoft.com/en-us/help/4026996/windows-10-turn-focus-assist-on-or-off)
 
@@ -59,5 +63,4 @@ Another issue might be that there's another window with the name
 "Mindustry" open. The notifier identifies the Mindustry 
 game window by its title. If there's another window titled "Mindustry" 
 (for example, an open folder in explorer), the notifier may mistake 
-that for the game and get confused. 
-
+that for the game and get confused.
