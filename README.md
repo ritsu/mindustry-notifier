@@ -1,3 +1,7 @@
+<p align="center">
+  <img width="380" height="180" src="https://user-images.githubusercontent.com/490097/72409396-8055b780-371a-11ea-80f1-3d5915ac9116.png" />
+</p>
+
 Mindustry Notifier
 =======================================
 Creates Windows notifications to alert the player when boss waves occur 
@@ -28,8 +32,9 @@ and running:
 ```
 python notifier.py
 ```
-Close the notifier through the system tray icon menu or by simply closing 
-the command line window.
+Close the notifier through the system tray icon menu. You can also close 
+it by simply killing the command line window, but that might cause the system 
+tray icon to linger until you hover over it.
 
 
 ## Options
@@ -56,7 +61,7 @@ If Windows notifications aren't being triggered, Focus Assist is
 probably turned on, which silences all Windows notifications. Windows 
 automatically enables this feature when it detects that you're 
 gaming. To enable the notifications, you'll have to 
-[turn off Focus Assist](https://support.microsoft.com/en-us/help/4026996/windows-10-turn-focus-assist-on-or-off)
+[turn off Focus Assist](https://support.microsoft.com/en-us/help/4026996/windows-10-turn-focus-assist-on-or-off).
 
 Another issue might be that there's another window with the name 
 "Mindustry" open. The notifier identifies the Mindustry 
