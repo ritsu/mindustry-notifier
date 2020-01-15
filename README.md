@@ -33,8 +33,7 @@ the command line window.
 
 
 ## Options
-Command line options are available when running the notifier via the command 
-line. To see the list of options, type:
+The options are mainly for debugging or observation. To see the list of options, type:
 ```
 python notifier.py -h
 ```
