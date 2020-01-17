@@ -48,15 +48,15 @@ python notifier.py -h
 ```
 This will bring up the following:
 
-    usage: notifier.py [-h] [-v | -q] [-i [INTERVAL]]
+    usage: notifier.py [-h] [-v] [-i [INTERVAL]]
 
     optional arguments:
-    -h, --help            show this help message and exit
-    -v, --verbose         log status to console at every interval, even if nothing has changed
-    -q, --quiet           only log critical statuses to console (windows notifications will be sent)
-    -i [INTERVAL], --interval [INTERVAL]
-                            seconds between status log updates in verbose mode
-
+      -h, --help            show this help message and exit
+      -v, --verbose         log status to console at every interval, even if
+                            nothing has changed
+      -i [INTERVAL], --interval [INTERVAL]
+                            seconds between status updates in verbose mode
+                            (default 5)
 
 ## Troubleshooting
 **Notifications aren't being triggered**!
