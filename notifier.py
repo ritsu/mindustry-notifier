@@ -136,7 +136,7 @@ class Notifier:
         self.windows_notifier.show_notification(title, msg)
 
     async def monitor(self):
-        while True:
+        while self.windows_notifier.alive:
             state = Notifier.game_state()
             if state != self.last_state:
                 # Avoid false positives when health bar of an individual boss depletes in the middle of a wave.
@@ -167,6 +167,7 @@ class Notifier:
 
 class WindowsNotifier:
     def __init__(self):
+        self.alive = True
         # Register the window class
         message_map = {
             win32con.WM_DESTROY: self.on_destroy,
@@ -229,21 +230,19 @@ class WindowsNotifier:
         return 1
 
     def on_command(self, hwnd, msg, wparam, lparam):
-        id = win32api.LOWORD(wparam)
-        if id == 1023:
-            # Dialog window to show log history, if you ever get around to it
-            pass
-        elif id == 1024:
+        wid = win32api.LOWORD(wparam)
+        if wid == 1024:
             WindowsNotifier.show_game_window()
-        elif id == 1025:
+        elif wid == 1025:
             win32gui.DestroyWindow(self.hwnd)
-            exit()
+            win32gui.UnregisterClass(self.wc.lpszClassName, None)
+            self.alive = False
         else:
-            print(f"Unknown command: {id}")
 
     def show_notification(self, title, msg):
         win32gui.Shell_NotifyIcon(win32gui.NIM_MODIFY, (self.hwnd, 0, win32gui.NIF_INFO, win32con.WM_USER + 20, 
                                   self.hicon, "Balloon Tooltip", msg, 200, title, win32gui.NIIF_ICON_MASK))
+            print(f"Unknown command: {wid}")
 
     @staticmethod
     def show_game_window():
