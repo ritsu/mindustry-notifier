@@ -4,8 +4,8 @@
 
 Mindustry Notifier
 =======================================
-Creates Windows notifications to alert the player when boss waves occur 
-in [Mindustry](https://github.com/Anuken/Mindustry). 
+This will create Windows notifications when boss waves appear 
+in [Mindustry](https://github.com/Anuken/Mindustry).
 
 The motivation for creating this was so I could leave the game running in 
 the background while doing other things and be alerted when boss waves 
