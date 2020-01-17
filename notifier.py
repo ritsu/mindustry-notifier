@@ -174,17 +174,17 @@ class WindowsNotifier:
             win32con.WM_COMMAND: self.on_command,
             win32con.WM_USER + 20: self.on_taskbar_notify,
         }
-        wc = win32gui.WNDCLASS()
-        hinst = wc.hInstance = win32api.GetModuleHandle(None)
-        wc.lpszClassName = "MindustryNotifierTaskbar"
-        wc.lpfnWndProc = message_map
+        self.wc = win32gui.WNDCLASS()
+        hinst = self.wc.hInstance = win32api.GetModuleHandle(None)
+        self.wc.lpszClassName = "MindustryNotifierTaskbar"
+        self.wc.lpfnWndProc = message_map
 
-        wc.style = win32con.CS_VREDRAW | win32con.CS_HREDRAW
-        wc.hCursor = win32api.LoadCursor( 0, win32con.IDC_ARROW )
-        wc.hbrBackground = win32con.COLOR_WINDOW
+        self.wc.style = win32con.CS_VREDRAW | win32con.CS_HREDRAW
+        self.wc.hCursor = win32api.LoadCursor( 0, win32con.IDC_ARROW )
+        self.wc.hbrBackground = win32con.COLOR_WINDOW
 
         try:
-            class_atom = win32gui.RegisterClass(wc)
+            class_atom = win32gui.RegisterClass(self.wc)
         except win32gui.error as err:
             if err.winerror != winerror.ERROR_CLASS_ALREADY_EXISTS:
                 raise
