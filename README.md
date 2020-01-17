@@ -32,9 +32,13 @@ and running:
 ```
 python notifier.py
 ```
+You should now recieve Windows notifications whenever boss waves appear in 
+Mindustry as long as both the notifier and the game are running, and the 
+game is not minimized or in fullscreen mode.
+
 Close the notifier through the system tray icon menu. You can also close 
-it by simply killing the command line window, but that might cause the system 
-tray icon to linger until you hover over it.
+it by killing the command line window, but that may cause the notifier 
+icon to linger in the system tray until you hover over it.
 
 
 ## Options
