@@ -36,20 +36,14 @@ class Notifier:
         self.last_state = None
         self.last_status = 0
         self.last_boss = 0
-        self.quiet = kwargs.get("quiet", False)
         self.verbose = kwargs.get("verbose", False)
         self.interval = kwargs.get("interval")
-        self.log("Notifier started.", state_change=True)
+        self.log("Notifier started.", True)
 
-    def log(self, msg, state_change=False, critical=False):
-        if self.quiet and not critical:
-            return
-        elif not (critical or state_change) and not self.verbose:
-            return
-        elif not (critical or state_change) and (time.time() - self.last_status) < self.interval:
-            return
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\t{msg}")
-        self.last_status = time.time()
+    def log(self, msg, state_change=False):
+        if state_change or (self.verbose and (time.time() - self.last_status) > self.interval):
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\t{msg}")
+            self.last_status = time.time()
 
     @staticmethod
     def is_boss_pixel(pixel):
@@ -263,12 +257,9 @@ def main(kwargs):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("-v", "--verbose", action="store_true", 
-                       help="log status to console at every interval, even if nothing has changed")
-    group.add_argument("-q", "--quiet", action="store_true", 
-                       help="only log critical statuses to console (windows notifications will be sent)")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="log status to console at every interval, even if nothing has changed")
     parser.add_argument("-i", "--interval", type=int, nargs="?", default=5, 
-                        help="seconds between status log updates in verbose mode")
+                        help="seconds between status updates in verbose mode (default 5)")
 
     main(vars(parser.parse_args()))
