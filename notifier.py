@@ -21,6 +21,30 @@ class GameState(Enum):
     OTHER = 5
 
 
+GAME_STATE_TEXT = {
+    GameState.NOT_FOUND: [
+        "Mindustry not found.",
+        "",
+    ],
+    GameState.SCREENSHOT_FAIL: [
+        "Failed to read bitmap.",
+        "Unable to read pixel data from the Mindustry game window. Boss wave notifications will be unavailable.",
+    ],
+    GameState.MINIMIZED: [
+        "Mindustry is minimized.",
+        "Boss waves cannot be detected if the game window is minimized.",
+    ],
+    GameState.BOSS_WAVE: [
+        "Boss wave detected.",
+        "A boss wave has been detected in your Mindustry game.",
+    ],
+    GameState.OTHER: [
+        "Mindustry is active.",
+        ""
+    ],
+}
+
+
 class Notifier:
     """ Notify user when boss waves occur in Mindustry """
 
@@ -36,20 +60,14 @@ class Notifier:
         self.last_state = None
         self.last_status = 0
         self.last_boss = 0
-        self.quiet = kwargs.get("quiet", False)
         self.verbose = kwargs.get("verbose", False)
         self.interval = kwargs.get("interval")
-        self.log("Notifier started.", state_change=True)
+        self.log("Notifier started.", True)
 
-    def log(self, msg, state_change=False, critical=False):
-        if self.quiet and not critical:
-            return
-        elif not (critical or state_change) and not self.verbose:
-            return
-        elif not (critical or state_change) and (time.time() - self.last_status) < self.interval:
-            return
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\t{msg}")
-        self.last_status = time.time()
+    def log(self, msg, state_change=False):
+        if state_change or (self.verbose and (time.time() - self.last_status) > self.interval):
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\t{msg}")
+            self.last_status = time.time()
 
     @staticmethod
     def is_boss_pixel(pixel):
@@ -118,72 +136,75 @@ class Notifier:
         self.windows_notifier.show_notification(title, msg)
 
     async def monitor(self):
-        while True:
+        while self.windows_notifier.alive:
             state = Notifier.game_state()
-            if state == GameState.NOT_FOUND:
-                self.notify("Mindustry does not appear to be running", "Mindustry Notifier has stopped beceause it "\
-                            "cannot find the Mindustry game window.")
-                self.log(f"Could not find Mindustry window. Stopping.", critical=True)
-                input("Press any key to quit.")
-                return
-            
-            if state == GameState.SCREENSHOT_FAIL:
-                self.notify("Unable to monitor Mindustry", "Mindustry Notifier has stopped because it is unable to "\
-                            "capture Mindustry's bitmap.")
-                self.log(f"Could not capture Mindustry bitmap. Stopping.", critical=True)
-                input("Press any key to quit.")
-                return
-            
-            if state == GameState.MINIMIZED:
-                if self.last_state != GameState.MINIMIZED:
-                    self.notify("Mindustry is minimized", "Your Mindustry game appears to be minimized. We cannot "\
-                                "detect boss waves if the window is minimized. It can be in the background though.")
-                    self.log(f"Game minimized, notification sent.", state_change=True)
+            if state != self.last_state:
+                # Avoid false positives when health bar of an individual boss depletes in the middle of a wave.
+                if state == GameState.BOSS_WAVE and (time.time() - self.last_boss) > 120:
+                    self.notify(GAME_STATE_TEXT[state][0], GAME_STATE_TEXT[state][1])
+                    self.log(" ".join([GAME_STATE_TEXT[state][0], "Notification sent."]), True)
+                    self.last_boss = time.time()
+                elif state in [GameState.SCREENSHOT_FAIL, GameState.MINIMIZED]:
+                    self.notify(GAME_STATE_TEXT[state][0], GAME_STATE_TEXT[state][1])
+                    self.log(" ".join([GAME_STATE_TEXT[state][0], "Notification sent."]), True)
                 else:
-                    self.log(f"Game minimized.")
-
-            if state == GameState.BOSS_WAVE:
-                now = time.time()
-                if self.last_state != GameState.BOSS_WAVE and (now - self.last_boss) > 120:
-                    self.notify("Boss wave detected", "A boss wave has been detected in your Mindustry game.")
-                    self.log(f"Boss wave detected, notification sent.", state_change=True)
-                else:
-                    self.log(f"Boss wave detected.")
-                self.last_boss = now
-            
-            if state == GameState.OTHER:
-                self.log(f"Nothing unusual detected.")
+                    self.log(GAME_STATE_TEXT[state][0], True)
+                self.windows_notifier.game_state = state
+                self.windows_notifier.update_icon()
+            else:
+                self.log(GAME_STATE_TEXT[state][0])
 
             self.last_state = state
-            await self.message_aware_sleep()
+            await self.message_aware_sleep(Notifier.CHECK_STATE_INTERVAL, Notifier.CHECK_MESSAGE_INTERVAL)
 
     @staticmethod
-    async def message_aware_sleep():
-        """ This is probably a terrible idea """
-        for _ in range(int(Notifier.CHECK_STATE_INTERVAL / Notifier.CHECK_MESSAGE_INTERVAL)):
+    async def message_aware_sleep(total_time, msg_time):
+        """ Sleep for total_time, while calling PumpWaitingMessages() every msg_time """
+        for _ in range(int(total_time / msg_time)):
             win32gui.PumpWaitingMessages()
-            await asyncio.sleep(Notifier.CHECK_MESSAGE_INTERVAL)
+            await asyncio.sleep(msg_time)
         
 
 class WindowsNotifier:
     def __init__(self):
+        self.alive = True
+
+        # Icons based on game state
+        icon_normal = path.realpath("notifyon.ico")
+        icon_gray = path.realpath("notifyoff.ico")
+
+        # Menu text color based on game state
+        menu_gray = win32con.MF_STRING | win32con.MF_GRAYED
+        menu_normal = win32con.MF_STRING
+        self.menu_mindustry_flags = {
+            GameState.NOT_FOUND: menu_gray,
+            GameState.SCREENSHOT_FAIL: menu_normal,
+            GameState.MINIMIZED: menu_normal,
+            GameState.BOSS_WAVE: menu_normal,
+            GameState.OTHER: menu_normal,
+        }
+        self.game_state = GameState.OTHER
+
+        self.icon_flags = win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE
+        self.nid_flags = win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP
+
         # Register the window class
         message_map = {
             win32con.WM_DESTROY: self.on_destroy,
             win32con.WM_COMMAND: self.on_command,
             win32con.WM_USER + 20: self.on_taskbar_notify,
         }
-        wc = win32gui.WNDCLASS()
-        hinst = wc.hInstance = win32api.GetModuleHandle(None)
-        wc.lpszClassName = "MindustryNotifierTaskbar"
-        wc.lpfnWndProc = message_map
+        self.wc = win32gui.WNDCLASS()
+        hinst = self.wc.hInstance = win32api.GetModuleHandle(None)
+        self.wc.lpszClassName = "MindustryNotifierTaskbar"
+        self.wc.lpfnWndProc = message_map
 
-        wc.style = win32con.CS_VREDRAW | win32con.CS_HREDRAW
-        wc.hCursor = win32api.LoadCursor( 0, win32con.IDC_ARROW )
-        wc.hbrBackground = win32con.COLOR_WINDOW
+        self.wc.style = win32con.CS_VREDRAW | win32con.CS_HREDRAW
+        self.wc.hCursor = win32api.LoadCursor( 0, win32con.IDC_ARROW )
+        self.wc.hbrBackground = win32con.COLOR_WINDOW
 
         try:
-            class_atom = win32gui.RegisterClass(wc)
+            class_atom = win32gui.RegisterClass(self.wc)
         except win32gui.error as err:
             if err.winerror != winerror.ERROR_CLASS_ALREADY_EXISTS:
                 raise
@@ -194,21 +215,38 @@ class WindowsNotifier:
                                           win32con.CW_USEDEFAULT, 0, 0, hinst, None)
         win32gui.UpdateWindow(self.hwnd)
 
-        # Icon
-        icon_path = path.realpath("notifier.ico")
-        icon_flags = win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE
+        # Create icons
         try:
-            self.hicon = win32gui.LoadImage(hinst, icon_path, win32con.IMAGE_ICON, 0, 0, icon_flags)
-        except err:
-            self.hicon = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
-
-        # Taskbar icon
-        flags = win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP
-        nid = (self.hwnd, 0, flags, win32con.WM_USER + 20, self.hicon, "Mindustry Notifier")
+            self.hicon_normal = win32gui.LoadImage(hinst, icon_normal, win32con.IMAGE_ICON, 0, 0, self.icon_flags)
+        except Exception as err:
+            self.hicon_normal = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
+        try:
+            self.hicon_gray = win32gui.LoadImage(hinst, icon_gray, win32con.IMAGE_ICON, 0, 0, self.icon_flags)
+        except Exception as err:
+            self.hicon_gray = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
+        self.hicons = {
+            GameState.NOT_FOUND: self.hicon_gray,
+            GameState.SCREENSHOT_FAIL: self.hicon_gray,
+            GameState.MINIMIZED: self.hicon_gray,
+            GameState.BOSS_WAVE: self.hicon_normal,
+            GameState.OTHER: self.hicon_normal,
+        }
+        nid = (self.hwnd, 0, self.nid_flags, win32con.WM_USER + 20, self.hicons[self.game_state], "Mindustry Notifier")
         try:
             win32gui.Shell_NotifyIcon(win32gui.NIM_ADD, nid)
         except win32gui.error:
-            # Windows usually recovers from this, so notify and continue
+            print("Failed to create taskbar icon. Possibly explorer has crashed or has not yet started.")
+
+    def show_notification(self, title, msg):
+        win32gui.Shell_NotifyIcon(win32gui.NIM_MODIFY, (self.hwnd, 0, win32gui.NIF_INFO, win32con.WM_USER + 20,
+                                  self.hicon_normal, "Balloon Tooltip", msg, 200, title, win32gui.NIIF_ICON_MASK))
+
+    def update_icon(self):
+        icon_text = "\n".join(["Mindustry Notifier", GAME_STATE_TEXT[self.game_state][0].replace("Mindustry", "Game")])
+        nid = (self.hwnd, 0, self.nid_flags, win32con.WM_USER + 20, self.hicons[self.game_state], icon_text)
+        try:
+            win32gui.Shell_NotifyIcon(win32gui.NIM_MODIFY, nid)
+        except win32gui.error:
             print("Failed to create taskbar icon. Possibly explorer has crashed or has not yet started.")
 
     def on_destroy(self, hwnd, msg, wparam, lparam):
@@ -219,8 +257,7 @@ class WindowsNotifier:
     def on_taskbar_notify(self, hwnd, msg, wparam, lparam):
         if lparam == win32con.WM_RBUTTONUP:
             menu = win32gui.CreatePopupMenu()
-            # win32gui.AppendMenu(menu, win32con.MF_STRING, 1023, "Show Status")
-            win32gui.AppendMenu(menu, win32con.MF_STRING, 1024, "Show Mindustry Game")
+            win32gui.AppendMenu(menu, self.menu_mindustry_flags[self.game_state], 1024, "Show Mindustry Game")
             win32gui.AppendMenu(menu, win32con.MF_STRING, 1025, "Exit Notifier")
             pos = win32gui.GetCursorPos()
             win32gui.SetForegroundWindow(self.hwnd)
@@ -229,21 +266,15 @@ class WindowsNotifier:
         return 1
 
     def on_command(self, hwnd, msg, wparam, lparam):
-        id = win32api.LOWORD(wparam)
-        if id == 1023:
-            # Dialog window to show log history, if you ever get around to it
-            pass
-        elif id == 1024:
+        wid = win32api.LOWORD(wparam)
+        if wid == 1024:
             WindowsNotifier.show_game_window()
-        elif id == 1025:
+        elif wid == 1025:
             win32gui.DestroyWindow(self.hwnd)
-            exit()
+            win32gui.UnregisterClass(self.wc.lpszClassName, None)
+            self.alive = False
         else:
-            print(f"Unknown command: {id}")
-
-    def show_notification(self, title, msg):
-        win32gui.Shell_NotifyIcon(win32gui.NIM_MODIFY, (self.hwnd, 0, win32gui.NIF_INFO, win32con.WM_USER + 20, 
-                                  self.hicon, "Balloon Tooltip", msg, 200, title, win32gui.NIIF_ICON_MASK))
+            print(f"Unknown command: {wid}")
 
     @staticmethod
     def show_game_window():
@@ -263,12 +294,9 @@ def main(kwargs):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("-v", "--verbose", action="store_true", 
-                       help="log status to console at every interval, even if nothing has changed")
-    group.add_argument("-q", "--quiet", action="store_true", 
-                       help="only log critical statuses to console (windows notifications will be sent)")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="log status to console at every interval, even if nothing has changed")
     parser.add_argument("-i", "--interval", type=int, nargs="?", default=5, 
-                        help="seconds between status log updates in verbose mode")
+                        help="seconds between status updates in verbose mode (default 5)")
 
     main(vars(parser.parse_args()))
