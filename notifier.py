@@ -155,14 +155,14 @@ class Notifier:
                 self.log(GAME_STATE_TEXT[state][0])
 
             self.last_state = state
-            await self.message_aware_sleep()
+            await self.message_aware_sleep(Notifier.CHECK_STATE_INTERVAL, Notifier.CHECK_MESSAGE_INTERVAL)
 
     @staticmethod
-    async def message_aware_sleep():
-        """ This is probably a terrible idea """
-        for _ in range(int(Notifier.CHECK_STATE_INTERVAL / Notifier.CHECK_MESSAGE_INTERVAL)):
+    async def message_aware_sleep(total_time, msg_time):
+        """ Sleep for total_time, while calling PumpWaitingMessages() every msg_time """
+        for _ in range(int(total_time / msg_time)):
             win32gui.PumpWaitingMessages()
-            await asyncio.sleep(Notifier.CHECK_MESSAGE_INTERVAL)
+            await asyncio.sleep(msg_time)
         
 
 class WindowsNotifier:
