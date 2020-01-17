@@ -21,6 +21,30 @@ class GameState(Enum):
     OTHER = 5
 
 
+GAME_STATE_TEXT = {
+    GameState.NOT_FOUND: [
+        "Mindustry not found.",
+        "",
+    ],
+    GameState.SCREENSHOT_FAIL: [
+        "Failed to read bitmap.",
+        "Unable to read pixel data from the Mindustry game window. Boss wave notifications will be unavailable.",
+    ],
+    GameState.MINIMIZED: [
+        "Mindustry is minimized.",
+        "Boss waves cannot be detected if the game window is minimized.",
+    ],
+    GameState.BOSS_WAVE: [
+        "Boss wave detected.",
+        "A boss wave has been detected in your Mindustry game.",
+    ],
+    GameState.OTHER: [
+        "Mindustry is active.",
+        ""
+    ],
+}
+
+
 class Notifier:
     """ Notify user when boss waves occur in Mindustry """
 
@@ -114,39 +138,21 @@ class Notifier:
     async def monitor(self):
         while True:
             state = Notifier.game_state()
-            if state == GameState.NOT_FOUND:
-                self.notify("Mindustry does not appear to be running", "Mindustry Notifier has stopped beceause it "\
-                            "cannot find the Mindustry game window.")
-                self.log(f"Could not find Mindustry window. Stopping.", critical=True)
-                input("Press any key to quit.")
-                return
-            
-            if state == GameState.SCREENSHOT_FAIL:
-                self.notify("Unable to monitor Mindustry", "Mindustry Notifier has stopped because it is unable to "\
-                            "capture Mindustry's bitmap.")
-                self.log(f"Could not capture Mindustry bitmap. Stopping.", critical=True)
-                input("Press any key to quit.")
-                return
-            
-            if state == GameState.MINIMIZED:
-                if self.last_state != GameState.MINIMIZED:
-                    self.notify("Mindustry is minimized", "Your Mindustry game appears to be minimized. We cannot "\
-                                "detect boss waves if the window is minimized. It can be in the background though.")
-                    self.log(f"Game minimized, notification sent.", state_change=True)
+            if state != self.last_state:
+                # Avoid false positives when health bar of an individual boss depletes in the middle of a wave.
+                if state == GameState.BOSS_WAVE and (time.time() - self.last_boss) > 120:
+                    self.notify(GAME_STATE_TEXT[state][0], GAME_STATE_TEXT[state][1])
+                    self.log(" ".join([GAME_STATE_TEXT[state][0], "Notification sent."]), True)
+                    self.last_boss = time.time()
+                elif state in [GameState.SCREENSHOT_FAIL, GameState.MINIMIZED]:
+                    self.notify(GAME_STATE_TEXT[state][0], GAME_STATE_TEXT[state][1])
+                    self.log(" ".join([GAME_STATE_TEXT[state][0], "Notification sent."]), True)
                 else:
-                    self.log(f"Game minimized.")
-
-            if state == GameState.BOSS_WAVE:
-                now = time.time()
-                if self.last_state != GameState.BOSS_WAVE and (now - self.last_boss) > 120:
-                    self.notify("Boss wave detected", "A boss wave has been detected in your Mindustry game.")
-                    self.log(f"Boss wave detected, notification sent.", state_change=True)
-                else:
-                    self.log(f"Boss wave detected.")
-                self.last_boss = now
-            
-            if state == GameState.OTHER:
-                self.log(f"Nothing unusual detected.")
+                    self.log(GAME_STATE_TEXT[state][0], True)
+                self.windows_notifier.game_state = state
+                self.windows_notifier.update_icon()
+            else:
+                self.log(GAME_STATE_TEXT[state][0])
 
             self.last_state = state
             await self.message_aware_sleep()
