@@ -168,6 +168,26 @@ class Notifier:
 class WindowsNotifier:
     def __init__(self):
         self.alive = True
+
+        # Icons based on game state
+        icon_normal = path.realpath("notifyon.ico")
+        icon_gray = path.realpath("notifyoff.ico")
+
+        # Menu text color based on game state
+        menu_gray = win32con.MF_STRING | win32con.MF_GRAYED
+        menu_normal = win32con.MF_STRING
+        self.menu_mindustry_flags = {
+            GameState.NOT_FOUND: menu_gray,
+            GameState.SCREENSHOT_FAIL: menu_normal,
+            GameState.MINIMIZED: menu_normal,
+            GameState.BOSS_WAVE: menu_normal,
+            GameState.OTHER: menu_normal,
+        }
+        self.game_state = GameState.OTHER
+
+        self.icon_flags = win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE
+        self.nid_flags = win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP
+
         # Register the window class
         message_map = {
             win32con.WM_DESTROY: self.on_destroy,
@@ -195,21 +215,38 @@ class WindowsNotifier:
                                           win32con.CW_USEDEFAULT, 0, 0, hinst, None)
         win32gui.UpdateWindow(self.hwnd)
 
-        # Icon
-        icon_path = path.realpath("notifier.ico")
-        icon_flags = win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE
+        # Create icons
         try:
-            self.hicon = win32gui.LoadImage(hinst, icon_path, win32con.IMAGE_ICON, 0, 0, icon_flags)
-        except err:
-            self.hicon = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
-
-        # Taskbar icon
-        flags = win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP
-        nid = (self.hwnd, 0, flags, win32con.WM_USER + 20, self.hicon, "Mindustry Notifier")
+            self.hicon_normal = win32gui.LoadImage(hinst, icon_normal, win32con.IMAGE_ICON, 0, 0, self.icon_flags)
+        except Exception as err:
+            self.hicon_normal = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
+        try:
+            self.hicon_gray = win32gui.LoadImage(hinst, icon_gray, win32con.IMAGE_ICON, 0, 0, self.icon_flags)
+        except Exception as err:
+            self.hicon_gray = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
+        self.hicons = {
+            GameState.NOT_FOUND: self.hicon_gray,
+            GameState.SCREENSHOT_FAIL: self.hicon_gray,
+            GameState.MINIMIZED: self.hicon_gray,
+            GameState.BOSS_WAVE: self.hicon_normal,
+            GameState.OTHER: self.hicon_normal,
+        }
+        nid = (self.hwnd, 0, self.nid_flags, win32con.WM_USER + 20, self.hicons[self.game_state], "Mindustry Notifier")
         try:
             win32gui.Shell_NotifyIcon(win32gui.NIM_ADD, nid)
         except win32gui.error:
-            # Windows usually recovers from this, so notify and continue
+            print("Failed to create taskbar icon. Possibly explorer has crashed or has not yet started.")
+
+    def show_notification(self, title, msg):
+        win32gui.Shell_NotifyIcon(win32gui.NIM_MODIFY, (self.hwnd, 0, win32gui.NIF_INFO, win32con.WM_USER + 20,
+                                  self.hicon_normal, "Balloon Tooltip", msg, 200, title, win32gui.NIIF_ICON_MASK))
+
+    def update_icon(self):
+        icon_text = "\n".join(["Mindustry Notifier", GAME_STATE_TEXT[self.game_state][0].replace("Mindustry", "Game")])
+        nid = (self.hwnd, 0, self.nid_flags, win32con.WM_USER + 20, self.hicons[self.game_state], icon_text)
+        try:
+            win32gui.Shell_NotifyIcon(win32gui.NIM_MODIFY, nid)
+        except win32gui.error:
             print("Failed to create taskbar icon. Possibly explorer has crashed or has not yet started.")
 
     def on_destroy(self, hwnd, msg, wparam, lparam):
@@ -220,8 +257,7 @@ class WindowsNotifier:
     def on_taskbar_notify(self, hwnd, msg, wparam, lparam):
         if lparam == win32con.WM_RBUTTONUP:
             menu = win32gui.CreatePopupMenu()
-            # win32gui.AppendMenu(menu, win32con.MF_STRING, 1023, "Show Status")
-            win32gui.AppendMenu(menu, win32con.MF_STRING, 1024, "Show Mindustry Game")
+            win32gui.AppendMenu(menu, self.menu_mindustry_flags[self.game_state], 1024, "Show Mindustry Game")
             win32gui.AppendMenu(menu, win32con.MF_STRING, 1025, "Exit Notifier")
             pos = win32gui.GetCursorPos()
             win32gui.SetForegroundWindow(self.hwnd)
@@ -238,10 +274,6 @@ class WindowsNotifier:
             win32gui.UnregisterClass(self.wc.lpszClassName, None)
             self.alive = False
         else:
-
-    def show_notification(self, title, msg):
-        win32gui.Shell_NotifyIcon(win32gui.NIM_MODIFY, (self.hwnd, 0, win32gui.NIF_INFO, win32con.WM_USER + 20, 
-                                  self.hicon, "Balloon Tooltip", msg, 200, title, win32gui.NIIF_ICON_MASK))
             print(f"Unknown command: {wid}")
 
     @staticmethod
