@@ -50,24 +50,26 @@ class Notifier:
 
     CHECK_STATE_INTERVAL = 0.5
     CHECK_MESSAGE_INTERVAL = 0.1
+    MIN_BOSS_INTERVAL = 120
     SCREENSHOT_X1 = 20
-    SCREENSHOT_X2 = 30
+    SCREENSHOT_X2 = 25
     SCREENSHOT_Y1 = 145
     SCREENSHOT_Y2 = 175
 
     def __init__(self, **kwargs):
         self.windows_notifier = WindowsNotifier()
-        self.last_state = None
-        self.last_status = 0
-        self.last_boss = 0
+        self.prev_state = None
+        self.status_time = 0
+        # Always send notification for first boss wave, even if it happens immediately after starting game
+        self.active_time_without_boss = Notifier.MIN_BOSS_INTERVAL
         self.verbose = kwargs.get("verbose", False)
         self.interval = kwargs.get("interval")
         self.log("Notifier started.", True)
 
     def log(self, msg, state_change=False):
-        if state_change or (self.verbose and (time.time() - self.last_status) > self.interval):
+        if state_change or (self.verbose and (time.time() - self.status_time) > self.interval):
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\t{msg}")
-            self.last_status = time.time()
+            self.status_time = time.time()
 
     @staticmethod
     def is_boss_pixel(pixel):
@@ -123,8 +125,11 @@ class Notifier:
             break
         
         win32gui.DeleteObject(bitmap.GetHandle())
-        mem_dc.DeleteDC()
-        img_dc.DeleteDC()
+        try:
+            mem_dc.DeleteDC()
+            img_dc.DeleteDC()
+        except Exception as err:
+            print(f"Error trying to delete context: {err}")
         win32gui.ReleaseDC(win_hd, win_dc)
 
         if result != 1:
@@ -138,12 +143,11 @@ class Notifier:
     async def monitor(self):
         while self.windows_notifier.alive:
             state = Notifier.game_state()
-            if state != self.last_state:
-                # Avoid false positives when health bar of an individual boss depletes in the middle of a wave.
-                if state == GameState.BOSS_WAVE and (time.time() - self.last_boss) > 120:
+            if state != self.prev_state:
+                # Only alert on boss wave if minimum non-boss active time has passed
+                if state == GameState.BOSS_WAVE and self.active_time_without_boss >= Notifier.MIN_BOSS_INTERVAL:
                     self.notify(GAME_STATE_TEXT[state][0], GAME_STATE_TEXT[state][1])
                     self.log(" ".join([GAME_STATE_TEXT[state][0], "Notification sent."]), True)
-                    self.last_boss = time.time()
                 elif state in [GameState.SCREENSHOT_FAIL, GameState.MINIMIZED]:
                     self.notify(GAME_STATE_TEXT[state][0], GAME_STATE_TEXT[state][1])
                     self.log(" ".join([GAME_STATE_TEXT[state][0], "Notification sent."]), True)
@@ -154,7 +158,12 @@ class Notifier:
             else:
                 self.log(GAME_STATE_TEXT[state][0])
 
-            self.last_state = state
+            if state == GameState.BOSS_WAVE:
+                self.active_time_without_boss = 0
+            elif state == GameState.OTHER:
+                self.active_time_without_boss += Notifier.CHECK_STATE_INTERVAL
+
+            self.prev_state = state
             await self.message_aware_sleep(Notifier.CHECK_STATE_INTERVAL, Notifier.CHECK_MESSAGE_INTERVAL)
 
     @staticmethod
