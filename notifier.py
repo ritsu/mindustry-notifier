@@ -123,8 +123,11 @@ class Notifier:
             break
         
         win32gui.DeleteObject(bitmap.GetHandle())
-        mem_dc.DeleteDC()
-        img_dc.DeleteDC()
+        try:
+            mem_dc.DeleteDC()
+            img_dc.DeleteDC()
+        except Exception as err:
+            print(f"Error trying to delete context: {err}")
         win32gui.ReleaseDC(win_hd, win_dc)
 
         if result != 1:
