@@ -18,6 +18,10 @@ background behind other windows or off the side of the screen, but it cannot
 be minimized.
 
 
+## Download
+- [v1.103](https://github.com/ritsu/mindustry-notifier/releases/tag/1.103) for Mindustry build 103 (released Jan 24, 2020)
+- [v1.0](https://github.com/ritsu/mindustry-notifier/releases/tag/1.0) for Mindustry build 102 (released Dec 29, 2019)
+
 ## Requirements
 - Windows 7 or higher
 - Python 3.6 or higher
