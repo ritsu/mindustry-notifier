@@ -52,9 +52,9 @@ class Notifier:
     CHECK_MESSAGE_INTERVAL = 0.1
     MIN_BOSS_INTERVAL = 120
     SCREENSHOT_X1 = 20
-    SCREENSHOT_X2 = 25
-    SCREENSHOT_Y1 = 145
-    SCREENSHOT_Y2 = 175
+    SCREENSHOT_X2 = 27
+    SCREENSHOT_Y1 = 128
+    SCREENSHOT_Y2 = 159
 
     def __init__(self, **kwargs):
         self.windows_notifier = WindowsNotifier()
@@ -121,7 +121,7 @@ class Notifier:
                     state = GameState.OTHER
                     break
             else:
-                continue   # only executed of no break encountered
+                continue   # only executed if no break encountered
             break
         
         win32gui.DeleteObject(bitmap.GetHandle())
